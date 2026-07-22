@@ -1,3 +1,13 @@
+#!/bin/bash
+dnf update -y || yum update -y
+dnf install -y nodejs || yum install -y nodejs
+
+# Fetch Instance ID using IMDSv2
+TOKEN=$(curl -s -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
+INSTANCE_ID=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/instance-id)
+DB_HOST="10.0.21.10"
+
+cat << 'APPCODE' > /home/ec2-user/server.js
 const http = require('http');
 
 const INSTANCE_ID = process.env.INSTANCE_ID || 'unknown-instance';
@@ -83,3 +93,9 @@ const server = http.createServer(async (req, res) => {
 server.listen(80, () => {
   console.log(`App server running on port 80 (Instance: ${INSTANCE_ID})`);
 });
+APPCODE
+
+export INSTANCE_ID=$INSTANCE_ID
+export DB_HOST=$DB_HOST
+cd /home/ec2-user
+nohup node server.js > app.log 2>&1 &
